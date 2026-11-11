@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>단원 복습 퀴즈 배틀</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 운동회 점수판 + OMR 답안지: 위쪽 청·백 점수판, 가운데 큰 문제 카드(왼쪽 가장자리 타이밍 마크), 아래 ①②③④ 마킹 칸 */
+:root {
+  --paper: #F3F6FB;
+  --card: #FFFFFF;
+  --ink: #17202F;
+  --muted: #586478;
+  --line: #D2D9E5;
+  --blue: #1D4ED3;
+  --on-blue: #FFFFFF;
+  --white-team: #E8ECF3;
+  --omr: #D33A48;
+  --omr-soft: #FBE5E7;
+  --ok: #0C8063;
+  --ok-soft: #DDF3EC;
+  --gold: #E9A700;
+  --font-display: 'Do Hyeon', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-body: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10141C; --card: #1A202B; --ink: #EDF1F7; --muted: #A2ADBF; --line: #2D3646;
+    --blue: #6A93FF; --on-blue: #0A0F1C; --white-team: #262E3B; --omr: #FF6E79; --omr-soft: #3A1E23;
+    --ok: #3CCB9F; --ok-soft: #15332B; --gold: #F4C542; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10141C; --card: #1A202B; --ink: #EDF1F7; --muted: #A2ADBF; --line: #2D3646;
+  --blue: #6A93FF; --on-blue: #0A0F1C; --white-team: #262E3B; --omr: #FF6E79; --omr-soft: #3A1E23;
+  --ok: #3CCB9F; --ok-soft: #15332B; --gold: #F4C542; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 17px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 400; margin: 0; text-wrap: balance; line-height: 1.15; }
+p { margin: 0; }
+button, select, textarea, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.btn {
+  border: 2px solid var(--ink); background: var(--card); border-radius: 12px; padding: 12px 22px;
+  font-family: var(--font-display); font-size: 1.35rem; line-height: 1.1;
+}
+.btn.primary { background: var(--blue); border-color: var(--blue); color: var(--on-blue); }
+.btn.ghost { border-color: var(--line); font-family: var(--font-body); font-size: 0.95rem; padding: 8px 14px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* 상단 바 */
+.topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.brand { font-family: var(--font-display); font-size: 1.35rem; letter-spacing: .02em; }
+.brand small { font-family: var(--font-body); font-size: .85rem; color: var(--muted); margin-left: 8px; letter-spacing: 0; }
+.topbar .spacer { flex: 1; }
+
+/* 점수판 */
+.board { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: stretch; }
+.board.solo { grid-template-columns: 1fr auto; }
+.team { border-radius: 16px; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 3px solid transparent; transition: transform .2s; }
+.team.blue { background: var(--blue); color: var(--on-blue); }
+.team.white { background: var(--white-team); border-color: var(--ink); }
+.team.turn { transform: translateY(-3px); box-shadow: 0 6px 0 var(--gold); }
+.team .name { font-family: var(--font-display); font-size: 1.5rem; }
+.team .pts { font-family: var(--font-display); font-size: 2.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.progress { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 6px 16px; border: 2px dashed var(--line); border-radius: 16px; min-width: 120px; }
+.progress .n { font-family: var(--font-display); font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.progress .lbl { font-size: .8rem; color: var(--muted); letter-spacing: .08em; }
+
+/* 문제 카드: 왼쪽 가장자리 OMR 타이밍 마크 */
+.qcard {
+  position: relative; background: var(--card); border: 2px solid var(--line); border-radius: 18px;
+  padding: 26px 28px 24px 52px; display: flex; flex-direction: column; gap: 14px;
+}
+.qcard::before {
+  content: ""; position: absolute; left: 16px; top: 22px; bottom: 22px; width: 14px;
+  background: repeating-linear-gradient(to bottom, var(--ink) 0 8px, transparent 8px 22px); opacity: .85; border-radius: 2px;
+}
+.qmeta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: .95rem; }
+.chip { font-family: var(--font-display); font-size: 1.05rem; padding: 3px 12px; border-radius: 999px; background: var(--white-team); color: var(--ink); }
+.chip.blue { background: var(--blue); color: var(--on-blue); }
+.qtext { font-family: var(--font-display); font-size: clamp(1.7rem, 3.6vw, 2.9rem); line-height: 1.25; }
+.timer { height: 14px; border-radius: 999px; background: var(--white-team); overflow: hidden; }
+.timer > i { display: block; height: 100%; width: 100%; background: var(--blue); transform-origin: left; }
+.timer.low > i { background: var(--omr); }
+.tleft { font-family: var(--font-display); font-size: 1.4rem; font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
+
+/* ①②③④ 마킹 칸 */
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.choice {
+  display: flex; align-items: center; gap: 16px; text-align: left; background: var(--card);
+  border: 2px solid var(--line); border-radius: 16px; padding: 16px 18px; min-height: 84px;
+  font-size: clamp(1.15rem, 2.2vw, 1.6rem); font-weight: 500; line-height: 1.35;
+}
+.choice .mark {
+  flex: none; width: 46px; height: 58px; border-radius: 50%; border: 2.5px solid var(--omr);
+  color: var(--omr); display: grid; place-items: center; font-family: var(--font-display); font-size: 1.5rem;
+  transition: background .15s, color .15s;
+}
+.choice:hover:not(:disabled) { border-color: var(--ink); }
+.choice:hover:not(:disabled) .mark { background: var(--omr-soft); }
+.choice:disabled { cursor: default; }
+.choice.picked .mark { background: var(--ink); border-color: var(--ink); color: var(--card); }
+.choice.right { border-color: var(--ok); background: var(--ok-soft); }
+.choice.right .mark { background: var(--ok); border-color: var(--ok); color: var(--card); }
+.choice.wrong { border-color: var(--omr); background: var(--omr-soft); }
+.choice.dim { opacity: .55; }
+
+.feedback { display: flex; gap: 16px; align-items: flex-start; border-radius: 16px; padding: 16px 20px; border: 2px solid var(--line); background: var(--card); }
+.feedback .verdict { font-family: var(--font-display); font-size: 1.9rem; line-height: 1.1; white-space: nowrap; }
+.feedback.ok .verdict { color: var(--ok); }
+.feedback.no .verdict { color: var(--omr); }
+.feedback .why { flex: 1; min-width: 0; font-size: 1.1rem; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.row .spacer { flex: 1; }
+.hint { color: var(--muted); font-size: .9rem; }
+
+/* 시작 화면 */
+.hero { display: grid; grid-template-columns: 1.3fr 1fr; gap: 22px; align-items: start; }
+.hero .intro { display: flex; flex-direction: column; gap: 14px; }
+.hero h1 { font-size: clamp(2.6rem, 6vw, 4.6rem); }
+.hero h1 em { font-style: normal; color: var(--blue); }
+.lede { font-size: 1.1rem; color: var(--muted); max-width: 34em; }
+.panel { background: var(--card); border: 2px solid var(--line); border-radius: 18px; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+.panel h2 { font-size: 1.5rem; }
+fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+legend { font-weight: 700; font-size: .95rem; margin-bottom: 6px; padding: 0; }
+.seg { display: flex; gap: 8px; flex-wrap: wrap; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; }
+.seg span { display: inline-block; padding: 8px 16px; border: 2px solid var(--line); border-radius: 999px; font-weight: 500; cursor: pointer; }
+.seg input:checked + span { border-color: var(--ink); background: var(--ink); color: var(--card); }
+.seg input:focus-visible + span { outline: 3px solid var(--gold); outline-offset: 2px; }
+.check { display: flex; gap: 8px; align-items: center; font-weight: 500; }
+.check input { width: 20px; height: 20px; accent-color: var(--blue); }
+.preview-list { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: .95rem; }
+.example-tag { font-size: .8rem; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+
+details.editor { background: var(--card); border: 2px solid var(--line); border-radius: 18px; padding: 14px 20px; }
+details.editor summary { cursor: pointer; font-family: var(--font-display); font-size: 1.3rem; }
+.editor-body { display: flex; flex-direction: column; gap: 12px; padding-top: 12px; }
+.format { font-family: ui-monospace, 'D2Coding', Consolas, monospace; font-size: .9rem; background: var(--paper); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; overflow-x: auto; white-space: pre; }
+textarea { width: 100%; min-height: 220px; resize: vertical; border: 2px solid var(--line); border-radius: 12px; padding: 12px; background: var(--paper); font-family: ui-monospace, 'D2Coding', Consolas, monospace; font-size: .92rem; line-height: 1.5; }
+.msg { font-size: .95rem; }
+.msg.err { color: var(--omr); }
+.msg.ok { color: var(--ok); }
+
+/* 결과 화면 */
+.result-head { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.result-head h1 { font-size: clamp(2.4rem, 5.5vw, 4rem); }
+.big { font-family: var(--font-display); font-size: clamp(3rem, 8vw, 5.5rem); line-height: 1; font-variant-numeric: tabular-nums; }
+.review { display: flex; flex-direction: column; gap: 10px; }
+.review-item { background: var(--card); border: 2px solid var(--line); border-left: 8px solid var(--omr); border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; }
+.review-item .q { font-weight: 700; }
+.review-item .a { color: var(--ok); font-weight: 700; }
+.review-item .w { color: var(--muted); font-size: .95rem; }
+.allright { background: var(--ok-soft); border: 2px solid var(--ok); border-radius: 12px; padding: 14px 18px; font-weight: 700; }
+
+@keyframes pop { from { transform: scale(.9); opacity: .4; } to { transform: scale(1); opacity: 1; } }
+.feedback, .big { animation: pop .25s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+@media (max-width: 760px) {
+  .hero { grid-template-columns: 1fr; }
+  .choices { grid-template-columns: 1fr; }
+  .board { grid-template-columns: 1fr 1fr; }
+  .board .progress { grid-column: 1 / -1; order: -1; flex-direction: row; gap: 10px; min-width: 0; }
+  .board.solo { grid-template-columns: 1fr; }
+  .qcard { padding-left: 40px; }
+  .qcard::before { left: 12px; width: 10px; }
+  .feedback { flex-direction: column; gap: 6px; }
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <p class="brand">퀴즈 배틀<small id="unitLabel">예시 단원 · 인공지능 기초 개념</small></p>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="soundBtn" type="button" aria-pressed="true">소리 켜짐</button>
+    <button class="btn ghost" id="fsBtn" type="button">전체 화면</button>
+  </header>
+
+  <!-- 시작 화면 -->
+  <section id="startScreen" aria-labelledby="startTitle">
+    <div class="hero">
+      <div class="intro">
+        <p class="example-tag">수업 마무리 10분 · TV 화면용</p>
+        <h1 id="startTitle">단원 복습<br><em>퀴즈 배틀</em></h1>
+        <p class="lede">문제를 함께 읽고 ①②③④ 중 하나를 고릅니다. 청백전을 고르면 청팀과 백팀이 한 문제씩 번갈아 답해요. 내 단원 문제는 아래 ‘내 문제 넣기’에 붙여 넣으면 됩니다.</p>
+        <div>
+          <p class="example-tag" id="previewTag">예시 문제 10개 미리 보기</p>
+          <ol class="preview-list" id="previewList"></ol>
+        </div>
+      </div>
+      <form class="panel" id="setupForm">
+        <h2>게임 설정</h2>
+        <fieldset>
+          <legend>방식</legend>
+          <div class="seg">
+            <label><input type="radio" name="mode" id="modeTeam" value="team" checked><span>청백전</span></label>
+            <label><input type="radio" name="mode" id="modeSolo" value="solo"><span>다 함께</span></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>문제당 시간</legend>
+          <div class="seg">
+            <label><input type="radio" name="secs" id="secs10" value="10"><span>10초</span></label>
+            <label><input type="radio" name="secs" id="secs20" value="20" checked><span>20초</span></label>
+            <label><input type="radio" name="secs" id="secs30" value="30"><span>30초</span></label>
+            <label><input type="radio" name="secs" id="secs0" value="0"><span>제한 없음</span></label>
+          </div>
+        </fieldset>
+        <label class="check"><input type="checkbox" id="shuffleChk" checked> 문제 순서 섞기</label>
+        <button class="btn primary" type="submit" id="startBtn">게임 시작</button>
+        <p class="hint">키보드: 1·2·3·4로 답 고르기, Enter로 다음 문제</p>
+      </form>
+    </div>
+
+    <details class="editor" id="editor">
+      <summary>내 문제 넣기</summary>
+      <div class="editor-body">
+        <p>한 줄에 한 문제씩, 칸은 세로 막대 <b>|</b> 로 나눕니다. 정답 번호는 1~4.</p>
+        <div class="format">문제 | 보기1 | 보기2 | 보기3 | 보기4 | 정답번호 | 해설</div>
+        <label for="qText" class="hint">문제 목록 (이 브라우저에만 기억됩니다)</label>
+        <textarea id="qText" spellcheck="false"></textarea>
+        <div class="row">
+          <button class="btn" type="button" id="applyBtn">이 문제로 바꾸기</button>
+          <button class="btn ghost" type="button" id="resetBtn">예시 문제로 되돌리기</button>
+          <span class="spacer"></span>
+        </div>
+        <p class="msg" id="editMsg" role="status"></p>
+      </div>
+    </details>
+  </section>
+
+  <!-- 게임 화면 -->
+  <section id="playScreen" hidden aria-live="polite">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="board" id="board">
+        <div class="team blue" id="teamBlue"><span class="name">청팀</span><span class="pts" id="ptsBlue">0</span></div>
+        <div class="progress"><span class="n" id="progN">1/10</span><span class="lbl">문제</span></div>
+        <div class="team white" id="teamWhite"><span class="name">백팀</span><span class="pts" id="ptsWhite">0</span></div>
+      </div>
+      <article class="qcard">
+        <div class="qmeta">
+          <span class="chip" id="turnChip">청팀 차례</span>
+          <span class="spacer" style="flex:1"></span>
+          <span class="tleft" id="tLeft">20초</span>
+        </div>
+        <div class="timer" id="timerBar"><i id="timerFill"></i></div>
+        <h2 class="qtext" id="qTextView">문제</h2>
+      </article>
+      <div class="choices" id="choices"></div>
+      <div class="feedback" id="feedback" hidden>
+        <p class="verdict" id="verdict">정답!</p>
+        <p class="why" id="why"></p>
+      </div>
+      <div class="row">
+        <button class="btn ghost" type="button" id="quitBtn">그만하기</button>
+        <span class="spacer"></span>
+        <button class="btn primary" type="button" id="nextBtn" hidden>다음 문제</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 결과 화면 -->
+  <section id="resultScreen" hidden>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="result-head">
+        <p class="example-tag" id="resultTag">결과</p>
+        <h1 id="resultTitle">청팀 승리!</h1>
+        <p class="big" id="resultBig">70 : 60</p>
+        <p class="lede" id="resultSub"></p>
+      </div>
+      <div class="row">
+        <button class="btn primary" type="button" id="retryWrongBtn">틀린 문제만 다시</button>
+        <button class="btn" type="button" id="againBtn">처음 화면으로</button>
+      </div>
+      <h2 style="font-size:1.6rem">다시 볼 문제</h2>
+      <div class="review" id="review"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const SAMPLE = [
+    "GPT의 'T'는 무엇의 줄임말일까요? | Transformer | Technology | Tutor | Text | 1 | GPT는 Generative Pre-trained Transformer의 줄임말이에요. 트랜스포머는 2017년 구글이 발표한 구조예요.",
+    "정답이 붙은 데이터로 학습하는 머신러닝 방법은? | 강화 학습 | 지도 학습 | 비지도 학습 | 전이 학습 | 2 | 고양이 사진에 '고양이'라는 정답을 붙여 학습시키는 방식이 지도 학습이에요.",
+    "정답 없이 비슷한 것끼리 묶어 내는 학습 방법은? | 지도 학습 | 강화 학습 | 비지도 학습 | 딥페이크 | 3 | 비지도 학습은 정답이 없는 데이터에서 비슷한 특징끼리 무리(군집)를 찾아요.",
+    "보상을 받으며 시행착오로 더 나은 행동을 배우는 방법은? | 강화 학습 | 지도 학습 | 비지도 학습 | 프롬프트 | 1 | 게임 점수 같은 보상을 받으며 더 잘하는 방법을 스스로 찾아가는 방식이에요.",
+    "인공지능, 머신러닝, 딥러닝의 관계로 옳은 것은? | 딥러닝 ⊃ 머신러닝 ⊃ 인공지능 | 셋은 서로 관계가 없다 | 인공지능 ⊃ 머신러닝 ⊃ 딥러닝 | 머신러닝 ⊃ 인공지능 ⊃ 딥러닝 | 3 | 가장 큰 원이 인공지능, 그 안에 머신러닝, 그 안에 딥러닝이 있어요.",
+    "여러 층의 인공신경망으로 학습하는 방법은? | 딥러닝 | 규칙 기반 AI | 비지도 학습 | 검색 엔진 | 1 | 층을 깊게 쌓은 인공신경망을 쓰기 때문에 '딥(deep)'러닝이라고 불러요.",
+    "딥러닝을 '블랙박스'라고 부르는 까닭은? | 검은색 컴퓨터에서만 돌아가서 | 데이터를 상자에 저장해서 | 어떻게 답에 이르렀는지 사람이 알기 어려워서 | 비밀번호가 걸려 있어서 | 3 | 층이 깊고 계산이 복잡해서 판단 과정을 사람이 들여다보기 어려워요.",
+    "AI로 진짜처럼 합성한 가짜 영상·음성을 무엇이라 할까요? | 딥페이크 | 딥러닝 | 빅데이터 | 메타버스 | 1 | 딥러닝(deep learning)과 가짜(fake)를 합친 말이에요. 출처를 꼭 확인해야 해요.",
+    "생성형 AI의 답을 대하는 바른 태도는? | 길고 자세하면 맞는 답이다 | 출처와 사실을 직접 확인한다 | 한 번 나온 답은 절대 바뀌지 않는다 | 친구에게 그대로 퍼뜨린다 | 2 | 생성형 AI는 그럴듯하지만 틀린 답을 만들 수 있어요. 중요한 내용은 꼭 확인해요.",
+    "말로 설명하면 AI가 코드를 만들어 주는 방식을 무엇이라 할까요? | 블록코딩 | 하드코딩 | 바이브코딩 | 언플러그드 | 3 | 2025년 2월 안드레이 카파시가 처음 쓴 말로, 콜린스 사전이 2025년 올해의 단어로 뽑았어요."
+  ].join("\n");
+  const STORE_KEY = "quizBattle.questions.v1";
+  const MARKS = ["①", "②", "③", "④"];
+  const $ = (id) => document.getElementById(id);
+
+  function parse(text) {
+    const questions = [], errors = [];
+    text.split(/\r?\n/).forEach((raw, i) => {
+      const line = raw.trim();
+      if (!line) return;
+      const parts = line.split("|").map((s) => s.trim());
+      if (parts.length < 6) { errors.push(`${i + 1}번째 줄: 칸이 ${parts.length}개예요. 문제·보기 4개·정답번호까지 최소 6칸이 필요해요.`); return; }
+      const ans = parseInt(parts[5], 10);
+      if (!(ans >= 1 && ans <= 4)) { errors.push(`${i + 1}번째 줄: 정답 번호는 1~4 중 하나여야 해요.`); return; }
+      if (parts.slice(0, 5).some((s) => !s)) { errors.push(`${i + 1}번째 줄: 비어 있는 칸이 있어요.`); return; }
+      questions.push({ q: parts[0], c: parts.slice(1, 5), a: ans - 1, why: parts.slice(6).join(" | ") });
+    });
+    return { questions, errors };
+  }
+
+  function loadText() {
+    try { const t = localStorage.getItem(STORE_KEY); if (t && parse(t).questions.length) return t; } catch (e) {}
+    return SAMPLE;
+  }
+  function saveText(t) { try { if (t === SAMPLE) localStorage.removeItem(STORE_KEY); else localStorage.setItem(STORE_KEY, t); } catch (e) {} }
+
+  let bankText = loadText();
+  let bank = parse(bankText).questions;
+  let S = null;            // 진행 상태
+  let tick = null;
+  let soundOn = true;
+  let audioCtx = null;
+
+  function beep(kind) {
+    if (!soundOn) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const notes = kind === "ok" ? [660, 880] : kind === "no" ? [300, 220] : [520];
+      notes.forEach((f, i) => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = kind === "no" ? "square" : "triangle"; o.frequency.value = f;
+        const t0 = audioCtx.currentTime + i * 0.12;
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.18, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.11);
+        o.connect(g).connect(audioCtx.destination); o.start(t0); o.stop(t0 + 0.12);
+      });
+    } catch (e) {}
+  }
+
+  function show(screen) {
+    ["startScreen", "playScreen", "resultScreen"].forEach((id) => { $(id).hidden = id !== screen; });
+    window.scrollTo(0, 0);
+  }
+
+  function renderPreview() {
+    const list = $("previewList");
+    list.textContent = "";
+    bank.slice(0, 5).forEach((it) => { const li = document.createElement("li"); li.textContent = it.q; list.appendChild(li); });
+    if (bank.length > 5) { const li = document.createElement("li"); li.textContent = `… 모두 ${bank.length}문제`; li.style.listStyle = "none"; list.appendChild(li); }
+    const isSample = bankText === SAMPLE;
+    $("previewTag").textContent = isSample ? `예시 문제 ${bank.length}개 미리 보기` : `내 문제 ${bank.length}개 미리 보기`;
+    $("unitLabel").textContent = isSample ? "예시 단원 · 인공지능 기초 개념" : "내 단원 문제";
+    $("startBtn").disabled = bank.length === 0;
+  }
+
+  function shuffled(arr) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  function startGame(indices) {
+    const form = $("setupForm");
+    const mode = form.querySelector('input[name="mode"]:checked').value;
+    const secs = parseInt(form.querySelector('input[name="secs"]:checked').value, 10);
+    let order = indices || bank.map((_, i) => i);
+    if ($("shuffleChk").checked) order = shuffled(order);
+    S = { mode, secs, order, idx: 0, blue: 0, white: 0, solo: 0, answered: false, log: [], deadline: 0 };
+    $("board").classList.toggle("solo", mode === "solo");
+    $("teamWhite").hidden = mode === "solo";
+    $("teamBlue").querySelector(".name").textContent = mode === "solo" ? "우리 반" : "청팀";
+    show("playScreen");
+    renderQuestion();
+  }
+
+  function team() { return S.mode === "solo" ? "solo" : (S.idx % 2 === 0 ? "blue" : "white"); }
+
+  function renderScores() {
+    $("ptsBlue").textContent = S.mode === "solo" ? S.solo : S.blue;
+    $("ptsWhite").textContent = S.white;
+    $("progN").textContent = `${S.idx + 1}/${S.order.length}`;
+    const t = team();
+    $("teamBlue").classList.toggle("turn", t === "blue");
+    $("teamWhite").classList.toggle("turn", t === "white");
+  }
+
+  function renderQuestion() {
+    const item = bank[S.order[S.idx]];
+    S.answered = false;
+    renderScores();
+    const t = team();
+    const chip = $("turnChip");
+    chip.textContent = t === "solo" ? "다 함께" : t === "blue" ? "청팀 차례" : "백팀 차례";
+    chip.className = "chip" + (t === "blue" ? " blue" : "");
+    $("qTextView").textContent = item.q;
+    const box = $("choices");
+    box.textContent = "";
+    item.c.forEach((txt, i) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "choice"; b.id = "choice" + i;
+      const m = document.createElement("span"); m.className = "mark"; m.textContent = String(i + 1); m.setAttribute("aria-hidden", "true");
+      const s = document.createElement("span"); s.textContent = txt;
+      b.setAttribute("aria-label", `${MARKS[i]} ${txt}`);
+      b.append(m, s);
+      b.addEventListener("click", () => answer(i));
+      box.appendChild(b);
+    });
+    $("feedback").hidden = true;
+    $("nextBtn").hidden = true;
+    startTimer();
+  }
+
+  function startTimer() {
+    clearInterval(tick);
+    const bar = $("timerBar"), fill = $("timerFill"), label = $("tLeft");
+    if (!S.secs) { bar.hidden = true; label.textContent = ""; return; }
+    bar.hidden = false;
+    S.deadline = performance.now() + S.secs * 1000;
+    const step = () => {
+      const left = Math.max(0, S.deadline - performance.now());
+      fill.style.transform = `scaleX(${left / (S.secs * 1000)})`;
+      label.textContent = `${Math.ceil(left / 1000)}초`;
+      bar.classList.toggle("low", left < 5000);
+      if (left <= 0) { clearInterval(tick); answer(-1); }
+    };
+    step();
+    tick = setInterval(step, 100);
+  }
+
+  function answer(i) {
+    if (S.answered) return;
+    S.answered = true;
+    clearInterval(tick);
+    const item = bank[S.order[S.idx]];
+    const ok = i === item.a;
+    const t = team();
+    if (ok) S[t] += 10;
+    S.log.push({ bankIndex: S.order[S.idx], chosen: i, ok });
+    [...$("choices").children].forEach((b, k) => {
+      b.disabled = true;
+      if (k === i) b.classList.add("picked");
+      if (k === item.a) b.classList.add("right");
+      else if (k === i) b.classList.add("wrong");
+      else b.classList.add("dim");
+    });
+    const fb = $("feedback");
+    fb.className = "feedback " + (ok ? "ok" : "no");
+    $("verdict").textContent = ok ? (t === "solo" ? "정답! +10" : `정답! ${t === "blue" ? "청팀" : "백팀"} +10`) : i === -1 ? "시간 끝!" : "아쉬워요";
+    $("why").textContent = (ok ? "" : `정답은 ${MARKS[item.a]} ${item.c[item.a]}. `) + (item.why || "");
+    fb.hidden = false;
+    beep(ok ? "ok" : "no");
+    renderScores();
+    const last = S.idx === S.order.length - 1;
+    const nb = $("nextBtn");
+    nb.textContent = last ? "결과 보기" : "다음 문제";
+    nb.hidden = false;
+    nb.focus({ preventScroll: true });
+  }
+
+  function next() {
+    if (!S || !S.answered) return;
+    if (S.idx < S.order.length - 1) { S.idx++; renderQuestion(); }
+    else finish();
+  }
+
+  function finish() {
+    clearInterval(tick);
+    const right = S.log.filter((r) => r.ok).length;
+    const total = S.log.length;
+    if (S.mode === "solo") {
+      $("resultTag").textContent = "다 함께 결과";
+      $("resultTitle").textContent = right === total ? "모두 맞혔어요!" : "수고했어요!";
+      $("resultBig").textContent = `${right} / ${total}`;
+      $("resultSub").textContent = `${total}문제 중 ${right}문제를 맞혔어요. 아래 문제를 한 번 더 짚어 보세요.`;
+    } else {
+      $("resultTag").textContent = "청백전 결과";
+      $("resultTitle").textContent = S.blue === S.white ? "무승부!" : S.blue > S.white ? "청팀 승리!" : "백팀 승리!";
+      $("resultBig").textContent = `${S.blue} : ${S.white}`;
+      $("resultSub").textContent = `청팀 ${S.blue}점, 백팀 ${S.white}점. 모두 ${total}문제 중 ${right}문제 정답.`;
+    }
+    const wrong = S.log.filter((r) => !r.ok);
+    const box = $("review");
+    box.textContent = "";
+    if (!wrong.length) {
+      const p = document.createElement("p"); p.className = "allright"; p.textContent = "틀린 문제가 없어요. 다음 단원으로 넘어가도 좋겠어요.";
+      box.appendChild(p);
+    }
+    wrong.forEach((r) => {
+      const it = bank[r.bankIndex];
+      const d = document.createElement("div"); d.className = "review-item";
+      const q = document.createElement("p"); q.className = "q"; q.textContent = it.q;
+      const a = document.createElement("p"); a.className = "a"; a.textContent = `정답 ${MARKS[it.a]} ${it.c[it.a]}`;
+      const w = document.createElement("p"); w.className = "w";
+      w.textContent = (r.chosen === -1 ? "시간이 지났어요. " : `고른 답 ${MARKS[r.chosen]} ${it.c[r.chosen]}. `) + (it.why || "");
+      d.append(q, a, w); box.appendChild(d);
+    });
+    $("retryWrongBtn").hidden = !wrong.length;
+    S.wrongIdx = wrong.map((r) => r.bankIndex);
+    show("resultScreen");
+    beep("ok");
+  }
+
+  // 이벤트
+  $("setupForm").addEventListener("submit", (e) => { e.preventDefault(); if (bank.length) startGame(); });
+  $("nextBtn").addEventListener("click", next);
+  $("quitBtn").addEventListener("click", () => { clearInterval(tick); if (S && S.log.length) finish(); else show("startScreen"); });
+  $("againBtn").addEventListener("click", () => show("startScreen"));
+  $("retryWrongBtn").addEventListener("click", () => { if (S && S.wrongIdx && S.wrongIdx.length) startGame(S.wrongIdx); });
+  document.addEventListener("keydown", (e) => {
+    if ($("playScreen").hidden || e.target.tagName === "TEXTAREA") return;
+    if (["1", "2", "3", "4"].includes(e.key) && !S.answered) { answer(parseInt(e.key, 10) - 1); }
+    else if (e.key === "Enter" && S && S.answered && document.activeElement !== $("nextBtn")) { e.preventDefault(); next(); }
+  });
+  $("soundBtn").addEventListener("click", (e) => {
+    soundOn = !soundOn;
+    e.currentTarget.textContent = soundOn ? "소리 켜짐" : "소리 꺼짐";
+    e.currentTarget.setAttribute("aria-pressed", String(soundOn));
+  });
+  $("fsBtn").addEventListener("click", () => {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+    } catch (e) {}
+  });
+  $("qText").value = bankText;
+  $("applyBtn").addEventListener("click", () => {
+    const text = $("qText").value;
+    const res = parse(text);
+    const msg = $("editMsg");
+    if (!res.questions.length) { msg.className = "msg err"; msg.textContent = "읽을 수 있는 문제가 없어요. " + (res.errors[0] || "형식을 확인해 주세요."); return; }
+    bankText = text; bank = res.questions; saveText(text); renderPreview();
+    msg.className = res.errors.length ? "msg err" : "msg ok";
+    msg.textContent = `${res.questions.length}문제를 불러왔어요.` + (res.errors.length ? ` 건너뛴 줄 ${res.errors.length}개: ` + res.errors.slice(0, 3).join(" ") : "");
+  });
+  $("resetBtn").addEventListener("click", () => {
+    bankText = SAMPLE; bank = parse(SAMPLE).questions; saveText(SAMPLE); $("qText").value = SAMPLE; renderPreview();
+    const msg = $("editMsg"); msg.className = "msg ok"; msg.textContent = "예시 문제 10개로 되돌렸어요.";
+  });
+
+  // 페이지가 새로 고쳐져도 진행 중인 게임 유지
+  window.claude?.hot?.snapshot?.(() => ({ S, screen: ["startScreen", "playScreen", "resultScreen"].find((id) => !$(id).hidden) }));
+  function start(data) {
+    renderPreview();
+    if (data && data.S && data.screen === "playScreen") {
+      S = data.S; $("board").classList.toggle("solo", S.mode === "solo"); $("teamWhite").hidden = S.mode === "solo";
+      show("playScreen"); renderQuestion();
+    }
+  }
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+
+</body>
+</html>
